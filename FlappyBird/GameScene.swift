@@ -7,6 +7,7 @@
 //
 
 import SpriteKit
+import AVFoundation
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
@@ -57,6 +58,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         //重力を設定
         physicsWorld.gravity = CGVector(dx: 0.0, dy: -4.0)
         physicsWorld.contactDelegate = self
+        
+        soundBgm()
 
     }
     
@@ -252,7 +255,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             bird.physicsBody?.velocity = CGVector.zero
             
             // 鳥に縦方向の力を与える
-            bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 15))
+            bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy: 10))
         } else if bird.speed == 0 {
             restart()
         }
@@ -282,7 +285,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         } else if (contact.bodyA.categoryBitMask & itemCategory) == itemCategory || (contact.bodyB.categoryBitMask & itemCategory) == itemCategory {
             print("itemScoreUp")
             itemScore += 1
-            itemScoreLabelNode.text = "Score:\(itemScore)"
+            itemScoreLabelNode.text = "Item Score:\(itemScore)"
+            var get_leaf: SKPhysicsBody
+            get_leaf = contact.bodyB
+            get_leaf.node?.removeFromParent()
+            soundEffect()
             
         } else {
             // 壁か地面と衝突した
@@ -296,6 +303,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let roll = SKAction.rotate(byAngle: CGFloat(Double.pi) * CGFloat(bird.position.y) * 0.01, duration:1)
             bird.run(roll, completion:{
                 self.bird.speed = 0
+                
+
             })
         }
     }
@@ -303,6 +312,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func restart() {
         score = 0
         scoreLabelNode.text = String("Score:\(score)")
+        itemScore = 0
+        itemScoreLabelNode.text = String("Item Score:\(itemScore)")
         
         bird.position = CGPoint(x: self.frame.size.width * 0.2, y:self.frame.size.height * 0.7)
         bird.physicsBody?.velocity = CGVector.zero
@@ -310,6 +321,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bird.zRotation = 0.0
         
         wallNode.removeAllChildren()
+        itemNode.removeAllChildren()
         
         bird.speed = 1
         scrollNode.speed = 1
@@ -355,7 +367,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let movingDistance = CGFloat(self.frame.size.width + itemTexture.size().width)
         
         //画面外まで移動するアクションを作成
-        let moveItem = SKAction.moveBy(x: -movingDistance, y: 0, duration:4.0)
+        let moveItem = SKAction.moveBy(x: -movingDistance, y: 0, duration:3.0)
         
         //自身を取り除くアクションを作成
         let removeItem = SKAction.removeFromParent()
@@ -368,7 +380,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             //アイテム関連のノードを乗せるノードを作成
             let item = SKNode()
             item.position = CGPoint(x: self.frame.size.width + itemTexture.size().width / 2, y: 0.0)
-            item.zPosition = -70.0
+            item.zPosition = -40.0
             
             //画面のY軸中央値
             let center_y = self.frame.size.height / 2
@@ -378,7 +390,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let item_lowest_y = UInt32( center_y - itemTexture.size().height / 2 - random_y_range / 2)
             //1〜random_y_rangeまでのランダムな整数を生成
             let random_y = arc4random_uniform( UInt32(random_y_range) )
-            //Y軸の下限にランダムな値を足して、下の壁のY座標を決定
+            //Y軸の下限にランダムな値を足して、アイテムのY座標を決定
             let item_y = CGFloat(item_lowest_y + random_y)
             
             //アイテムを作成
@@ -389,6 +401,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             //スプライトに物理演算を設定する
             item_leaf.physicsBody = SKPhysicsBody(circleOfRadius: item_leaf.size.height / 2.0)
             item_leaf.physicsBody?.categoryBitMask = self.itemCategory
+            item_leaf.physicsBody?.contactTestBitMask = self.birdCategory
             
             //衝突の際に動かないように設定する
             item_leaf.physicsBody?.isDynamic = false
@@ -400,39 +413,30 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     })
     
         //次のアイテム作成までの待ち時間のアクションを作成
-        let waitAnimation = SKAction.wait(forDuration: 5)
+        let waitAnimation = SKAction.wait(forDuration: 4)
         
         //アイテムを作成→待ち時間→アイテムを作成を無限に繰り返すアクション
         let repeatForeverAnimation = SKAction.repeatForever(SKAction.sequence([createItemAnimation, waitAnimation]))
         
         itemNode.run(repeatForeverAnimation)
-
+    }
+    
+    var se: AVAudioPlayer?
+    var bgm: AVAudioPlayer?
+    
+    func soundEffect() {
+        if let sound = NSDataAsset(name: "se") {
+            se = try? AVAudioPlayer(data: sound.data)
+            se?.play()
+        }
+    }
+    
+    func soundBgm() {
+        
+        if let sound = NSDataAsset(name: "bgm") {
+            bgm = try? AVAudioPlayer(data: sound.data)
+            bgm?.numberOfLoops = -1
+            bgm?.play()
+        }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
