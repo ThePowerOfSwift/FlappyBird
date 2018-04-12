@@ -11,6 +11,8 @@ import SpriteKit
 class GameScene: SKScene {
     
     var scrollNode: SKNode!
+    var wallNode: SKNode!
+    var bird: SKSpriteNode!
     
     override func didMove(to view: SKView) {
         //背景色を設定
@@ -18,11 +20,22 @@ class GameScene: SKScene {
         //スクロールするスプライトの親ノード
         scrollNode = SKNode()
         addChild(scrollNode)
+        
+        //壁用のノード
+        wallNode = SKNode() //追加
+        scrollNode.addChild(wallNode)
+        
         //各種スプライトを生成する処理をメソッドに分割
         setupGround()
         setupCloud()
+        setupWall()
+        setupBird()
+        
+        //重力を設定
+        physicsWorld.gravity = CGVector(dx: 0.0, dy: -4.0)
 
     }
+    
     func setupGround() {
         // 地面の画像を読み込む
         let groundTexture = SKTexture(imageNamed: "ground")
@@ -46,6 +59,12 @@ class GameScene: SKScene {
             )
             //スプライトにアクションを設定する
             sprite.run(repeatScrollGround)
+            
+            //スプライトに物理演算を設定する　地面と同じサイズの四角い物理体
+            sprite.physicsBody = SKPhysicsBody(rectangleOf: groundTexture.size())
+            
+            //衝突の時に動かないように設定する
+            sprite.physicsBody?.isDynamic = false
             //スプライトを追加する
             scrollNode.addChild(sprite)
         }
@@ -78,6 +97,113 @@ class GameScene: SKScene {
             //スプライトを追加する
             scrollNode.addChild(sprite)
         }
+    }
+    
+    func setupWall() {
+        //壁の画像を読み込む
+        let wallTexture = SKTexture(imageNamed: "wall")
+        wallTexture.filteringMode = .linear //当たり判定用のスプライトに貼り付けるテクスチャは画質優先の方が良い
+        
+        //移動する距離を計算
+        let movingDistance = CGFloat(self.frame.size.width + wallTexture.size().width)
+   
+        //画面外まで移動するアクションを作成
+        let moveWall = SKAction.moveBy(x: -movingDistance, y: 0, duration:4.0)
+        
+        //自信を取り除くアクションを作成
+        let removeWall = SKAction.removeFromParent()
+        
+        //2つのアニメーションを順に実行するアクションを作成
+        let wallAnimation = SKAction.sequence([moveWall, removeWall])
+        
+        //壁を生成するアクションを作成
+        let createWallAnimation = SKAction.run({
+            //壁関連のノードを乗せるノードを作成
+            let wall = SKNode()
+            wall.position = CGPoint(x: self.frame.size.width + wallTexture.size().width / 2, y: 0.0)
+            wall.zPosition = -50.0
+            
+            //画面のY軸中央値
+            let center_y = self.frame.size.height / 2
+            //壁のY座標を上下ランダムにさせる時の最大値
+            let random_y_range = self.frame.size.height / 4
+            //下の壁のY軸の下限
+            let under_wall_lowest_y = UInt32( center_y - wallTexture.size().height / 2 - random_y_range / 2)
+            //1〜random_y_rangeまでのランダムな整数を生成
+            let random_y = arc4random_uniform( UInt32(random_y_range) )
+            //Y軸の下限にランダムな値を足して、下の壁のY座標を決定
+            let under_wall_y = CGFloat(under_wall_lowest_y + random_y)
+            
+            //キャラが通り抜ける隙間の長さ
+            let slit_length = self.frame.size.height / 6
+            
+            //下側の壁を作成
+            let under = SKSpriteNode(texture: wallTexture)
+            under.position = CGPoint(x: 0.0, y: under_wall_y)
+            wall.addChild(under)
+            
+            //スプライトに物理演算を設定する
+            under.physicsBody? = SKPhysicsBody(rectangleOf: wallTexture.size())
+            
+            //衝突の際に動かないように設定する
+            under.physicsBody?.isDynamic = false
+            
+            //上側の壁を作成
+            let upper = SKSpriteNode(texture: wallTexture)
+            upper.position = CGPoint(x: 0.0, y: under_wall_y + wallTexture.size().height + slit_length)
+            
+            //スプライトに物理演算を設定する
+            upper.physicsBody? = SKPhysicsBody(rectangleOf: wallTexture.size())
+            
+            //衝突の際に動かないように設定する
+            upper.physicsBody?.isDynamic = false
+            
+            wall.addChild(upper)
+            wall.run(wallAnimation)
+            
+            self.wallNode.addChild(wall)
+        })
+        
+        //次の壁作成までの待ち時間のアクションを作成
+        let waitAnimation = SKAction.wait(forDuration: 2)
+        
+        //壁を作成→待ち時間→壁を作成を無限に繰り返すアクション
+        let repeatForeverAnimation = SKAction.repeatForever(SKAction.sequence([createWallAnimation, waitAnimation]))
+        
+        wallNode.run(repeatForeverAnimation)
+    }
+    
+    func setupBird() {
+        //鳥の画像を二枚読み込む
+        let birdTextureA = SKTexture(imageNamed: "bird_a")
+        birdTextureA.filteringMode = .linear
+        let birdTextureB = SKTexture(imageNamed: "bird_b")
+        birdTextureB.filteringMode = .linear
+        
+        //二種類のテクスチャを交互に変更するアニメーションを作成
+        let texturesAnimation = SKAction.animate(with: [birdTextureA, birdTextureB], timePerFrame: 0.2)
+        let flap = SKAction.repeatForever(texturesAnimation)
+        
+        //スプライトを作成
+        bird = SKSpriteNode(texture: birdTextureA)
+        bird.position = CGPoint(x: self.frame.size.width * 0.2, y:self.frame.size.height * 0.7)
+        
+        //物理演算を設定　半径2の円形の物理体
+        bird.physicsBody = SKPhysicsBody(circleOfRadius: bird.size.height / 2.0)
+        
+        //アニメーションを設定
+        bird.run(flap)
+        
+        //スプライトを追加する
+        addChild(bird)
+    }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        //鳥の速度をゼロにする
+        bird.physicsBody?.velocity = CGVector.zero
+        
+        //鳥に縦方向の力を与える
+        bird.physicsBody?.applyImpulse(CGVector(dx: 0, dy:15))
     }
 
 }
